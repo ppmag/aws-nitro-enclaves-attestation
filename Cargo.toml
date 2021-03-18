@@ -15,4 +15,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+aws-nitro-enclaves-cose = "0.1.0"
+webpki = "0.21.4"
+
 
