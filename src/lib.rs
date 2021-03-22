@@ -20,11 +20,13 @@ use serde_bytes::ByteBuf;
 //use chrono::serde::ts_seconds;
 use chrono::serde::ts_milliseconds;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, Duration};
+use chrono::prelude::*;
 
 use std::collections::HashMap;
 //use serde_cbor::from_slice;
 
+use hex;
 
 #[derive(Debug, Deserialize)]
 struct NitroAdDocPayload {
@@ -91,9 +93,48 @@ mod tests {
         let ad_payload = ad_doc.get_payload(None).unwrap();
 
         let ad_parsed: NitroAdDocPayload = serde_cbor::from_slice(&ad_payload).unwrap();
-        println!("{:?}", ad_parsed);
+        //println!("{:?}", ad_parsed);
 
-        // 
+        assert!( ad_parsed.module_id.len() > 0 ); 
+        assert!( ad_parsed.digest == "SHA384" );
+
+        // validate timestamp range
+        let ts_start = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let ts_end = Utc::now() + Duration::days(1);
+        assert!( ad_parsed.timestamp > ts_start &&  ad_parsed.timestamp < ts_end );
+        
+        // validate pcr map
+        let pcrs_len = ad_parsed.pcrs.len() as u8;
+        assert!( (1..32).contains(&pcrs_len) );
+        
+        for i in 0..pcrs_len {
+            assert!( ad_parsed.pcrs.contains_key(&i) );
+            let pcr_len = ad_parsed.pcrs[&i].len();
+            assert!( [32, 48, 64].contains( &pcr_len ));
+
+            println!("prc{:2}:  {}", i, hex::encode( ad_parsed.pcrs[&i].to_vec() ) );
+        }
+
+        // validate 'certificate' member agaiinst 
+        // reordered 'cabundle' with root cert replaced with our trusted hardcoded one
+
+        /*
+        let ee: &[u8] = ad_parsed.certificate.to_vec();
+        let ca = include_bytes!("../tests/data/aws_root.der");
+    
+        let interm: Vec<ByteBuf>[] = ad_parsed.cabundle.to_vec()[1..];
+
+        let anchors = vec![webpki::trust_anchor_util::cert_der_as_trust_anchor(ca).unwrap()];
+        let anchors = webpki::TLSServerTrustAnchors(&anchors);
+    
+        let time = webpki::Time::from_seconds_since_unix_epoch(1616094379); // 18 March 2021
+    
+        let cert = webpki::EndEntityCert::from(ee).unwrap();
+        assert_eq!(
+            Ok(()),
+            cert.verify_is_valid_tls_server_cert(ALL_SIGALGS, &anchors, &[interm], time)
+        );
+        */
 
     }
 
