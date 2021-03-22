@@ -10,7 +10,32 @@
 use webpki;
 use aws_nitro_enclaves_cose as aws_cose;
 
+use serde::{Deserialize, Serialize};
+use serde_bytes::ByteBuf;
+use serde_cbor::Error as CborError;
+use serde_cbor::Value as CborValue;
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use std::collections::BTreeMap;
 
+use chrono::serde::ts_seconds;
+use chrono::{DateTime, Utc};
+
+#[derive(Debug, Deserialize)]
+struct NitroAdPayload {
+    module_id: String,
+    digest: String,
+
+    #[serde(with = "ts_seconds")]
+    timestamp: DateTime<Utc>
+
+
+    //"pcrs"        => Mandatory
+    //"certificate" => Mandatory
+    //"cabundle"    => Mandatory
+    //"public_key"  => Optional
+    //"user_data"   => Optional
+    //"nonce"       => Optional
+}
 
 
 #[cfg(test)]
@@ -41,8 +66,24 @@ mod tests {
     const TEXT: &[u8] = b"It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.";
 
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn aws_nitro_ad_validation_flow() {
+
+        let ad_bytes = include_bytes!("../tests/data/nitro_ad_debug.bin");
+        let ad_doc = aws_cose::COSESign1::from_bytes(ad_bytes);
+
+        let ad_doc = ad_doc.unwrap();
+
+        // for validation flow details see here:
+        // https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/main/docs/attestation_process.md 
+
+        // !! no Signature checks for now - to do signature validation, specify pub key
+        let ad_payload = ad_doc.get_payload(None).unwrap();
+
+        let ad_parsed: NitroAdPayload = serde_cbor::from_slice(&ad_payload).unwrap();
+        println!("{:?}", ad_parsed);
+
+        // 
+
     }
 
     #[test]
