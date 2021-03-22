@@ -10,31 +10,42 @@
 use webpki;
 use aws_nitro_enclaves_cose as aws_cose;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_bytes::ByteBuf;
-use serde_cbor::Error as CborError;
-use serde_cbor::Value as CborValue;
-use serde_repr::{Deserialize_repr, Serialize_repr};
-use std::collections::BTreeMap;
+//use serde_cbor::Error as CborError;
+//use serde_cbor::Value as CborValue;
+//use serde_repr::{Deserialize_repr, Serialize_repr};
+//use std::collections::BTreeMap;
 
-use chrono::serde::ts_seconds;
+//use chrono::serde::ts_seconds;
+use chrono::serde::ts_milliseconds;
+
 use chrono::{DateTime, Utc};
 
+use std::collections::HashMap;
+//use serde_cbor::from_slice;
+
+
 #[derive(Debug, Deserialize)]
-struct NitroAdPayload {
+struct NitroAdDocPayload {
     module_id: String,
     digest: String,
 
-    #[serde(with = "ts_seconds")]
-    timestamp: DateTime<Utc>
+    #[serde(with = "ts_milliseconds")]
+    timestamp: DateTime<Utc>,
 
+    pcrs: HashMap<u8, ByteBuf>,
+    certificate: ByteBuf,
+    cabundle: Vec<ByteBuf>,
 
-    //"pcrs"        => Mandatory
-    //"certificate" => Mandatory
-    //"cabundle"    => Mandatory
-    //"public_key"  => Optional
-    //"user_data"   => Optional
-    //"nonce"       => Optional
+    // optional
+    public_key: Option<ByteBuf>,
+
+    // optional
+    user_data: Option<ByteBuf>,
+
+    // optional 
+    nonce: Option<ByteBuf>
 }
 
 
@@ -79,7 +90,7 @@ mod tests {
         // !! no Signature checks for now - to do signature validation, specify pub key
         let ad_payload = ad_doc.get_payload(None).unwrap();
 
-        let ad_parsed: NitroAdPayload = serde_cbor::from_slice(&ad_payload).unwrap();
+        let ad_parsed: NitroAdDocPayload = serde_cbor::from_slice(&ad_payload).unwrap();
         println!("{:?}", ad_parsed);
 
         // 
