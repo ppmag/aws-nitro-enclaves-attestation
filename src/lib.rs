@@ -11,7 +11,7 @@ use webpki;
 use aws_nitro_enclaves_cose as aws_cose;
 
 use serde::Deserialize;
-use serde_bytes::ByteBuf;
+use serde_bytes::{Bytes, ByteBuf};
 //use serde_cbor::Error as CborError;
 //use serde_cbor::Value as CborValue;
 //use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -27,6 +27,7 @@ use std::collections::HashMap;
 //use serde_cbor::from_slice;
 
 use hex;
+
 
 #[derive(Debug, Deserialize)]
 struct NitroAdDocPayload {
@@ -51,6 +52,7 @@ struct NitroAdDocPayload {
 }
 
 
+
 #[cfg(test)]
 mod tests {
     
@@ -59,6 +61,7 @@ mod tests {
     use openssl::pkey::{Private, Public};
     use openssl::ec::*;
     
+
     static ALL_SIGALGS: &[&webpki::SignatureAlgorithm] = &[
         &webpki::ECDSA_P256_SHA256,
         &webpki::ECDSA_P256_SHA384,
@@ -74,6 +77,7 @@ mod tests {
         #[cfg(feature = "alloc")]
         &webpki::RSA_PKCS1_3072_8192_SHA384,
     ];
+    
 
     // Public domain work: Pride and Prejudice by Jane Austen, taken from https://www.gutenberg.org/files/1342/1342.txt
     const TEXT: &[u8] = b"It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.";
@@ -115,27 +119,29 @@ mod tests {
             println!("prc{:2}:  {}", i, hex::encode( ad_parsed.pcrs[&i].to_vec() ) );
         }
 
-        // validate 'certificate' member agaiinst 
+        // validate 'certificate' member against 
         // reordered 'cabundle' with root cert replaced with our trusted hardcoded one
 
-        /*
-        let ee: &[u8] = ad_parsed.certificate.to_vec();
+        let ee: &[u8] = &ad_parsed.certificate;
         let ca = include_bytes!("../tests/data/aws_root.der");
     
-        let interm: Vec<ByteBuf>[] = ad_parsed.cabundle.to_vec()[1..];
-
+        let interm: Vec<ByteBuf> = ad_parsed.cabundle;
+        let interm = &interm[1..];  // skip first (claimed root) cert
+        
+        let interm_slices: Vec<_> = interm.iter().rev().map(|x| x.as_slice()).collect();
+        let interm_slices: &[&[u8]] = &interm_slices.to_vec();
+ 
         let anchors = vec![webpki::trust_anchor_util::cert_der_as_trust_anchor(ca).unwrap()];
         let anchors = webpki::TLSServerTrustAnchors(&anchors);
     
-        let time = webpki::Time::from_seconds_since_unix_epoch(1616094379); // 18 March 2021
-    
+        //let time = webpki::Time::from_seconds_since_unix_epoch(1616094379); // 18 March 2021
+        let time = webpki::Time::try_from(std::time::SystemTime::now()).unwrap();
+
         let cert = webpki::EndEntityCert::from(ee).unwrap();
         assert_eq!(
             Ok(()),
-            cert.verify_is_valid_tls_server_cert(ALL_SIGALGS, &anchors, &[interm], time)
+            cert.verify_is_valid_tls_server_cert(ALL_SIGALGS, &anchors, interm_slices, time)
         );
-        */
-
     }
 
     #[test]
