@@ -28,6 +28,8 @@ use std::collections::HashMap;
 
 use hex;
 
+use std::io::prelude::*;
+use std::fs::File;
 
 #[derive(Debug, Deserialize)]
 struct NitroAdDocPayload {
@@ -125,17 +127,33 @@ mod tests {
         let ee: &[u8] = &ad_parsed.certificate;
         let ca = include_bytes!("../tests/data/aws_root.der");
     
+       
+
+
         let interm: Vec<ByteBuf> = ad_parsed.cabundle;
         let interm = &interm[1..];  // skip first (claimed root) cert
         
-        let interm_slices: Vec<_> = interm.iter().rev().map(|x| x.as_slice()).collect();
+        let interm_slices: Vec<_> = interm.iter().map(|x| x.as_slice()).collect();
         let interm_slices: &[&[u8]] = &interm_slices.to_vec();
  
         let anchors = vec![webpki::trust_anchor_util::cert_der_as_trust_anchor(ca).unwrap()];
         let anchors = webpki::TLSServerTrustAnchors(&anchors);
     
-        //let time = webpki::Time::from_seconds_since_unix_epoch(1616094379); // 18 March 2021
-        let time = webpki::Time::try_from(std::time::SystemTime::now()).unwrap();
+        // current ee baked into the ../tests/data/nitro_ad_debug.bin attestation document has next time limits 
+        //
+        // notBefore=Mar  5 17:01:49 2021 GMT
+        // notAfter=Mar  5 20:01:49 2021 GMT
+        //
+        // let's substitute test timestamp within above range
+        // Use nex snippet to export cert
+        //
+        //      let mut f = File::create("./_ee.der").expect("Could not run file!");
+        //      f.write_all(ee);
+        //
+        // Then, issue next cmd to see notBefore & notAfter from ./_ee.der
+        // $openssl x509 -startdate -enddate -noout -inform der -in ./_ee.der
+
+        let time = webpki::Time::from_seconds_since_unix_epoch(1614967200); // Mar 5 18:00:00 2021 GMT
 
         let cert = webpki::EndEntityCert::from(ee).unwrap();
         assert_eq!(
