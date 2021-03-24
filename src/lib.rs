@@ -34,6 +34,13 @@ use hex;
 use std::io::prelude::*;
 use std::fs::File;
 
+use openssl::bn::BigNumContext;
+use openssl::ec::*;
+use openssl::nid::Nid;
+
+use openssl::pkey::PKey;
+use openssl::pkey::{Private, Public};
+
 #[derive(Debug, Deserialize)]
 struct NitroAdDocPayload {
     module_id: String,
@@ -62,9 +69,7 @@ struct NitroAdDocPayload {
 mod tests {
     
     use super::*;
-    use openssl::pkey::PKey;
-    use openssl::pkey::{Private, Public};
-    use openssl::ec::*;
+
     
 
     static ALL_SIGALGS: &[&webpki::SignatureAlgorithm] = &[
@@ -166,20 +171,6 @@ mod tests {
 
         // finally validate COSE signature of attestation document 
         // [TODO] remove aws_nitro_enclaves_cose & opensll deps, use webpki's functionality EndEntityCert::verify_signature() instead
-
-        //assert!(ad_doc.verify_signature(&ec_public).unwrap());
-
-        /*let ee2 =  openssl::x509::X509::from_der(ee).unwrap();
-        println!("{:#?}",  ee2.subject_name_hash() );
-        let ee2_pk: PKey<Public> = ee2.public_key().unwrap();
-*/
-
-use openssl::bn::BigNumContext;
-use openssl::ec::*;
-use openssl::nid::Nid;
-
-
-
         
         let res = parse_x509_certificate(ee);
         match res {
