@@ -26,3 +26,4 @@ serde_repr = "0.1.6"
 
 chrono = { version = "0.4.19", features = ["serde"] }
 hex = "0.4.3"
+x509-parser = "0.9.1"

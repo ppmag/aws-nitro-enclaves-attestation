@@ -9,6 +9,7 @@
 
 use webpki;
 use aws_nitro_enclaves_cose as aws_cose;
+use openssl::x509::*;
 
 use serde::Deserialize;
 use serde_bytes::{Bytes, ByteBuf};
@@ -25,6 +26,8 @@ use chrono::prelude::*;
 
 use std::collections::HashMap;
 //use serde_cbor::from_slice;
+
+use x509_parser::prelude::*;
 
 use hex;
 
@@ -147,8 +150,8 @@ mod tests {
         // let's substitute test timestamp within above range
         // Use nex snippet to export cert
         //
-        //      let mut f = File::create("./_ee.der").expect("Could not run file!");
-        //      f.write_all(ee);
+        //let mut f = File::create("./_ee.der").expect("Could not run file!");
+        //f.write_all(ee);
         //
         // Then, issue next cmd to see notBefore & notAfter from ./_ee.der
         // $openssl x509 -startdate -enddate -noout -inform der -in ./_ee.der
@@ -160,6 +163,70 @@ mod tests {
             Ok(()),
             cert.verify_is_valid_tls_server_cert(ALL_SIGALGS, &anchors, interm_slices, time)
         );
+
+        // finally validate COSE signature of attestation document 
+        // [TODO] remove aws_nitro_enclaves_cose & opensll deps, use webpki's functionality EndEntityCert::verify_signature() instead
+
+        //assert!(ad_doc.verify_signature(&ec_public).unwrap());
+
+        /*let ee2 =  openssl::x509::X509::from_der(ee).unwrap();
+        println!("{:#?}",  ee2.subject_name_hash() );
+        let ee2_pk: PKey<Public> = ee2.public_key().unwrap();
+*/
+
+use openssl::bn::BigNumContext;
+use openssl::ec::*;
+use openssl::nid::Nid;
+
+
+
+        
+        let res = parse_x509_certificate(ee);
+        match res {
+            Ok((rem, cert)) => {
+                assert!(rem.is_empty());
+                //
+                assert_eq!(cert.tbs_certificate.version, X509Version::V3);
+
+                let ee_pub_key = cert.tbs_certificate.subject_pki.subject_public_key.data;
+
+                //println!("{:#?}", cert.tbs_certificate.subject_pki.data);
+
+                //let ff: &[u8] = cert.tbs_certificate.subject_pki.into();
+       
+                
+                
+                //assert!(ad_doc.verify_signature(&ee_pub_key).unwrap());
+                //let ec_pub_key = get_ec384_pubkey_from_certkey(&ee_pub_key);
+
+
+                //assert!(ad_doc.verify_signature(&ec_pub_key).unwrap());
+
+
+                // create an EcKey from the binary form of a EcPoint
+
+
+                let group = EcGroup::from_curve_name(Nid::SECP384R1).unwrap();
+                let mut ctx = BigNumContext::new().unwrap();
+                let point = EcPoint::from_bytes(&group, &ee_pub_key, &mut ctx).unwrap();
+                let key = EcKey::from_public_key(&group, &point).unwrap();
+
+                assert!(ad_doc.verify_signature(&key).unwrap());
+                    
+                /*assert_eq!(res.algorithm.algorithm, OID_PKCS1_RSAENCRYPTION);
+                let params = res.algorithm.parameters.expect("algorithm parameters");
+                assert_eq!(params.header.tag.0, 5);
+                let spk = res.subject_public_key;
+                println!("spk.data.len {}", spk.data.len());
+                assert_eq!(spk.data.len(), 270);
+                */
+
+            },
+            _ => panic!("x509 parsing failed: {:?}", res),
+        }
+
+
+
     }
 
     #[test]
@@ -243,4 +310,18 @@ mod tests {
             ec_public
         )
     }
+
+  /* /////
+    fn get_ec384_pubkey_from_certkey(key: &[u8]) -> EcKey<Public> {
+
+        let group = EcGroup::from_curve_name(openssl::nid::Nid::SECP384R1).unwrap();
+        let key = EcKey::from_
+
+        let alg = openssl::ec::EcGroup::from_curve_name(openssl::nid::Nid::SECP384R1).unwrap();
+        let x = openssl::bn::BigNum::from_slice(&key[0..48]).unwrap();
+        let y = openssl::bn::BigNum::from_slice(&key[48..]).unwrap();
+
+        openssl::ec::EcKey::from_public_key_affine_coordinates(&alg, &x, &y).unwrap();
+       
+    }*/
 }
