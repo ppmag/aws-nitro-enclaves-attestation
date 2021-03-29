@@ -9,6 +9,7 @@
 
 use webpki;
 use aws_nitro_enclaves_cose as aws_cose;
+use aws_cose::error::COSEError;
 use openssl::x509::*;
 
 use serde_json;
@@ -71,24 +72,73 @@ struct NitroAdDocPayload {
     cert: Option<String>
 }
 
+enum NitroAdError {
+    COSEError(COSEError),
+    CBORError(serde_cbor::Error),
+    VerificationError(webpki::Error),
+    SerializationError(serde_json::Error)
+}
+
+impl From<COSEError> for NitroAdError {
+    fn from(err: COSEError) -> NitroAdError {
+        NitroAdError::COSEError(err)
+    }   
+}
+
+impl From<serde_cbor::Error> for NitroAdError {
+    fn from(err: serde_cbor::Error) -> NitroAdError {
+        NitroAdError::CBORError(err)
+    }   
+}
+
+impl From<webpki::Error> for NitroAdError {
+    fn from(err: webpki::Error) -> NitroAdError {
+        NitroAdError::VerificationError(err)
+    }   
+}
+
+impl From<serde_json::Error> for NitroAdError {
+    fn from(err: serde_json::Error) -> NitroAdError {
+        NitroAdError::SerializationError(err)
+    }   
+}
+
 struct NitroAdDoc {
-    ddd: u8,
 
     payload_ref: NitroAdDocPayload
-
 }
 
-/*
+
 impl NitroAdDoc {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ()> {
-        Ok( NitroAdDoc{ ddd: 4 } )
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, NitroAdError> {
+ 
+
+        let ad_bytes = include_bytes!("../tests/data/nitro_ad_debug.bin");
+        let ad_doc_cose = aws_cose::COSESign1::from_bytes(ad_bytes)?;
+
+        //let ad_doc_cose = ad_doc_cose.unwrap();
+
+        // for validation flow details see here:
+        // https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/main/docs/attestation_process.md 
+
+        // !! no Signature checks for now - to do signature validation, specify pub key
+        let ad_payload = ad_doc_cose.get_payload(None)?; //.unwrap();
+
+        let ad_parsed: NitroAdDocPayload = serde_cbor::from_slice(&ad_payload)?; //.unwrap();
+        //println!("{:?}", ad_parsed);
+
+        assert!( ad_parsed.module_id.len() > 0 ); 
+        assert!( ad_parsed.digest == "SHA384" );
+
+        Ok( NitroAdDoc{ payload_ref: ad_parsed } )
     }
 
-    pub fn to_json(&self) -> Result<String, ()>  {
-        serde_json::to_string(&self.payload_ref)
+    pub fn to_json(&self) -> Result<String, NitroAdError>  {
+        let str = serde_json::to_string(&self.payload_ref)?;
+        Ok(str)
     }
 }
-*/
+
 
 #[cfg(test)]
 mod tests {
