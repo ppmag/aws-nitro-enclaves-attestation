@@ -8,17 +8,36 @@ pub struct Slice_c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn parse(pointer: *const c_char) -> c_int {
+pub extern "C" fn parse_ress(pointer: *const c_char) -> c_int {
 
-    2
+    (2+2)
 }
 
-/*
+
 #[cfg(test)]
 mod tests {
+
+    use std::env::{set_var, remove_var};
+    use inline_c::assert_c;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn it_works_www() {
+
+        (assert_c! {
+            //====================================================================================
+            #include <stdio.h>
+            #include "nitroattest.h"
+    
+            int main() {
+
+                printf("parse: %d \n", parse_ress(0) );
+                
+                return 0;
+            }
+            //====================================================================================
+        })
+        .success()
+        .stdout("parse: 4 \n");
+
     }
 }
-*/
