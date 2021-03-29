@@ -11,7 +11,8 @@ use webpki;
 use aws_nitro_enclaves_cose as aws_cose;
 use openssl::x509::*;
 
-use serde::Deserialize;
+use serde_json;
+use serde::{Serialize, Deserialize};
 use serde_bytes::{Bytes, ByteBuf};
 //use serde_cbor::Error as CborError;
 //use serde_cbor::Value as CborValue;
@@ -41,7 +42,7 @@ use openssl::nid::Nid;
 use openssl::pkey::PKey;
 use openssl::pkey::{Private, Public};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct NitroAdDocPayload {
     module_id: String,
     digest: String,
@@ -50,7 +51,11 @@ struct NitroAdDocPayload {
     timestamp: DateTime<Utc>,
 
     pcrs: HashMap<u8, ByteBuf>,
+
+    #[serde(skip_serializing)]
     certificate: ByteBuf,
+
+    #[serde(skip_serializing)]
     cabundle: Vec<ByteBuf>,
 
     // optional
@@ -60,10 +65,30 @@ struct NitroAdDocPayload {
     user_data: Option<ByteBuf>,
 
     // optional 
-    nonce: Option<ByteBuf>
+    nonce: Option<ByteBuf>,
+
+    // syntetic from prev
+    cert: Option<String>
 }
 
+struct NitroAdDoc {
+    ddd: u8,
 
+    payload_ref: NitroAdDocPayload
+
+}
+
+/*
+impl NitroAdDoc {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ()> {
+        Ok( NitroAdDoc{ ddd: 4 } )
+    }
+
+    pub fn to_json(&self) -> Result<String, ()>  {
+        serde_json::to_string(&self.payload_ref)
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {
