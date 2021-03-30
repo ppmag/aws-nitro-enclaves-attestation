@@ -6,6 +6,7 @@
 //! secure communication and mutual attestation.
 //! 
 //! 
+use std::string::String;
 
 use webpki;
 use aws_nitro_enclaves_cose as aws_cose;
@@ -32,6 +33,8 @@ use std::collections::HashMap;
 use x509_parser::prelude::*;
 
 use hex;
+use std::fmt;
+
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -51,6 +54,7 @@ struct NitroAdDocPayload {
     #[serde(with = "ts_milliseconds")]
     timestamp: DateTime<Utc>,
 
+    #[serde(serialize_with = "ser_peer_public")]
     pcrs: HashMap<u8, ByteBuf>,
 
     #[serde(skip_serializing)]
@@ -72,11 +76,33 @@ struct NitroAdDocPayload {
     cert: Option<String>
 }
 
-enum NitroAdError {
+fn ser_peer_public<S>(peer_public: &HashMap<u8, ByteBuf>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    //#[derive(Serialize)]
+    //struct Wrapper<'a>(#[serde(serialize_with = "u8vec_as_hex")] &'a ByteBuf);
+
+    //let map = peer_public.iter().map(|(k, v)| (k, Wrapper(v)));
+    //serializer.collect_map(map)
+    
+    let map = peer_public.iter().map(|(k, v)| (k+50, v));
+    serializer.collect_map(map)
+}
+
+#[derive(Debug)]
+pub enum NitroAdError {
     COSEError(COSEError),
     CBORError(serde_cbor::Error),
     VerificationError(webpki::Error),
     SerializationError(serde_json::Error)
+}
+
+impl fmt::Display for NitroAdError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "NitroAdError: ")
+        //write!(f, *self.to_string() ); // user-facing output
+    }
 }
 
 impl From<COSEError> for NitroAdError {
@@ -103,7 +129,9 @@ impl From<serde_json::Error> for NitroAdError {
     }   
 }
 
-struct NitroAdDoc {
+
+
+pub struct NitroAdDoc {
 
     payload_ref: NitroAdDocPayload
 }
@@ -135,6 +163,8 @@ impl NitroAdDoc {
 
     pub fn to_json(&self) -> Result<String, NitroAdError>  {
         let str = serde_json::to_string(&self.payload_ref)?;
+        assert_eq!(str, "");
+
         Ok(str)
     }
 }
@@ -166,6 +196,17 @@ mod tests {
 
     // Public domain work: Pride and Prejudice by Jane Austen, taken from https://www.gutenberg.org/files/1342/1342.txt
     const TEXT: &[u8] = b"It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.";
+
+    #[test]
+    fn payload_to_json() -> Result<(), NitroAdError> {
+        
+        let ad_blob = include_bytes!("../tests/data/nitro_ad_debug.bin");
+        let nitro_addoc = NitroAdDoc::from_bytes(ad_blob)?;
+        
+        assert!( nitro_addoc.to_json().unwrap() == "" );
+
+        Ok(())
+    }
 
     #[test]
     fn aws_nitro_ad_validation_flow() {
