@@ -15,7 +15,7 @@ use openssl::x509::*;
 
 use serde_json;
 use serde::{Serialize, Deserialize};
-use serde_bytes::{Bytes, ByteBuf};
+use serde_bytes::{Bytes, ByteBuf, };
 //use serde_cbor::Error as CborError;
 //use serde_cbor::Value as CborValue;
 //use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -27,12 +27,14 @@ use chrono::serde::ts_milliseconds;
 use chrono::{DateTime, Utc, Duration};
 use chrono::prelude::*;
 
+use itertools::Itertools;
 use std::collections::HashMap;
 //use serde_cbor::from_slice;
 
 use x509_parser::prelude::*;
 
 use hex;
+
 use std::fmt;
 
 
@@ -45,6 +47,7 @@ use openssl::nid::Nid;
 
 use openssl::pkey::PKey;
 use openssl::pkey::{Private, Public};
+
 
 #[derive(Debug, Serialize, Deserialize)]
 struct NitroAdDocPayload {
@@ -64,17 +67,19 @@ struct NitroAdDocPayload {
     cabundle: Vec<ByteBuf>,
 
     // optional
+    //#[serde(skip_serializing_if = "Option::is_none")] 
     public_key: Option<ByteBuf>,
 
     // optional
+    //#[serde(skip_serializing_if = "Option::is_none")] 
     user_data: Option<ByteBuf>,
 
     // optional 
-    nonce: Option<ByteBuf>,
-
-    // syntetic from prev
-    cert: Option<String>
+    //#[serde(skip_serializing_if = "Option::is_none")] 
+    nonce: Option<ByteBuf>
 }
+
+
 
 fn ser_peer_public<S>(peer_public: &HashMap<u8, ByteBuf>, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -86,9 +91,10 @@ where
     //let map = peer_public.iter().map(|(k, v)| (k, Wrapper(v)));
     //serializer.collect_map(map)
     
-    let map = peer_public.iter().map(|(k, v)| (k+50, v));
+    let map = peer_public.iter().sorted().map(|(k, v)| (k, hex::encode( v.to_vec() )));
     serializer.collect_map(map)
 }
+
 
 #[derive(Debug)]
 pub enum NitroAdError {
@@ -163,8 +169,7 @@ impl NitroAdDoc {
 
     pub fn to_json(&self) -> Result<String, NitroAdError>  {
         let str = serde_json::to_string(&self.payload_ref)?;
-        assert_eq!(str, "");
-
+    
         Ok(str)
     }
 }
@@ -175,7 +180,6 @@ mod tests {
     
     use super::*;
 
-    
 
     static ALL_SIGALGS: &[&webpki::SignatureAlgorithm] = &[
         &webpki::ECDSA_P256_SHA256,
@@ -198,12 +202,13 @@ mod tests {
     const TEXT: &[u8] = b"It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.";
 
     #[test]
-    fn payload_to_json() -> Result<(), NitroAdError> {
+    fn test_payload_to_valid_json() -> Result<(), NitroAdError> {
         
         let ad_blob = include_bytes!("../tests/data/nitro_ad_debug.bin");
         let nitro_addoc = NitroAdDoc::from_bytes(ad_blob)?;
-        
-        assert!( nitro_addoc.to_json().unwrap() == "" );
+        let js = nitro_addoc.to_json().unwrap();
+
+        let _: serde::de::IgnoredAny = serde_json::from_str(&js)?;
 
         Ok(())
     }
