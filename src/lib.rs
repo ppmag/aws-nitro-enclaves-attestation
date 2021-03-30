@@ -147,8 +147,8 @@ impl NitroAdDoc {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, NitroAdError> {
  
 
-        let ad_bytes = include_bytes!("../tests/data/nitro_ad_debug.bin");
-        let ad_doc_cose = aws_cose::COSESign1::from_bytes(ad_bytes)?;
+        //let ad_bytes = include_bytes!("../tests/data/nitro_ad_debug.bin");
+        let ad_doc_cose = aws_cose::COSESign1::from_bytes(bytes)?;
 
         //let ad_doc_cose = ad_doc_cose.unwrap();
 
