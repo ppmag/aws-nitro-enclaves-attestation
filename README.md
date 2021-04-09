@@ -6,9 +6,20 @@ secure communication and mutual attestation.
 
 Unfortunately, AWS Nitro Enclaves SDK for this moment has a lot of gaps in functionality, this library is trying to fill. 
 
+# How to use
+
+After
+```bash
+cargo build --all
+```
+you can find C headers and `nitroattest.so`, `nitroattest.a` library files in your target build dir.
+
+For inline C language test snippet just look inside the `./c-lib/src/lib.rs`
+
 # Status
 
-Not ready to use. Under heavy development!
+Alpha. Under heavy development!
+For inline C language test snippet look into `./c-lib/src/lib.rs`
 
 # Features
 
