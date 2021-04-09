@@ -1,9 +1,7 @@
 use cbindgen;
 
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
-//use std::{ffi::OsStr};
 
 fn main() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
