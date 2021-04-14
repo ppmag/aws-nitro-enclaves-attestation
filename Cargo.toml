@@ -1,7 +1,7 @@
 
 [workspace]
-members = [ "c-lib" ]
-default-members = [ "c-lib" ]
+members = [ "ffi" ]
+default-members = [ "ffi" ]
 
 [profile.release]
 lto = true
@@ -12,7 +12,7 @@ version = "0.1.0"
 authors = ["ppmag <mybestexpert@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0"
-description = "Attestation primitives library (with C/C++ bindings) for use in AWS Nitro Enclave applications."
+description = "Attestation primitives library (for C/C++ bindings) for use in AWS Nitro Enclave applications."
 homepage = "https://github.com/ppmag/aws-nitro-enclaves-attestation"
 repository = "https://github.com/ppmag/aws-nitro-enclaves-attestation"
 readme = "README.md"

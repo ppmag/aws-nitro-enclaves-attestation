@@ -16,7 +16,7 @@ cargo build --all
 ```
 you can find C headers and `nitroattest.so`, `nitroattest.a` library files in your target build dir.
 
-For inline C language test snippet just look inside the `./c-lib/src/lib.rs`
+For inline C language test snippet just look inside the `./ffi/src/lib.rs`
 
 # Status
 
