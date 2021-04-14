@@ -11,6 +11,13 @@ name = "aws-nitro-enclaves-attestation"
 version = "0.1.0"
 authors = ["ppmag <mybestexpert@gmail.com>"]
 edition = "2018"
+license = "Apache-2.0"
+description = "Attestation primitives library (with C/C++ bindings) for use in AWS Nitro Enclave applications."
+homepage = "https://github.com/ppmag/aws-nitro-enclaves-attestation"
+repository = "https://github.com/ppmag/aws-nitro-enclaves-attestation"
+readme = "README.md"
+keywords = ["aws", "amazon", "enclave", "nitro", "attestation"]
+categories = ["development-tools::ffi", "hardware-support", "parser-implementations", "cryptography"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
