@@ -22,7 +22,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 libc = "0.2.91"
-aws-nitro-enclaves-attestation = { path = "../" }
+aws-nitro-enclaves-attestation = { path = "../", version="0.1.0" }
 
 [build-dependencies]
 cbindgen = "0.18.0"
