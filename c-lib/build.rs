@@ -10,14 +10,6 @@ fn main() {
     let dest_dir = Path::new(&out_dir).join("../../../headers/");
     let dest_path = Path::new(&dest_dir).join("nitroattest.h");
 
-    /*cbindgen::Builder::new()
-            .with_crate(crate_dir)
-            .with_language(cbindgen::Language::C)
-            .generate()
-            .expect("Unable to generate bindings")
-            .write_to_file(dest_path);
-    */
-
     cbindgen::generate(crate_dir)
         .expect("Unable to generate bindings")
         .write_to_file(dest_path);
@@ -51,7 +43,6 @@ fn main() {
         } else if cfg!(target_os = "macos") {
             "libnitroattest.dylib".to_string()
         } else {
-            //"libfoo.so".to_string()
             "libnitroattest.so".to_string()
         }
     );

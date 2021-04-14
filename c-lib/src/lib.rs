@@ -13,6 +13,7 @@ pub unsafe extern "C" fn na_ad_get_verified_payload_as_json(
     root_cert_der_len: usize,
     unix_ts_sec: u64,
 ) -> *const c_char {
+
     // ad document ptr & len
     if ad_blob_ptr.is_null() {
         return std::ptr::null();
@@ -48,13 +49,11 @@ pub unsafe extern "C" fn na_str_free(ptr: *mut c_char) {
 
 #[cfg(test)]
 mod tests {
-
-    //use std::env::{set_var, remove_var};
     use inline_c::assert_c;
 
     #[test]
     #[rustfmt::skip]
-    fn it_works_www() {
+    fn c_basic_interfacing() {
         (assert_c! {
             //====================================================================================
             #include <stdio.h>
@@ -74,7 +73,7 @@ mod tests {
                 if (!s)
                   return -1;
 
-                printf("parse: \n\n %s \n", s );
+                printf("ad payload: \n\n %s \n", s );
 
                 na_str_free( (char*)s);
                 
