@@ -70,11 +70,12 @@ mod tests {
                 const char* s = na_ad_get_verified_payload_as_json( __nitro_ad_debug_bin, __nitro_ad_debug_bin_len,
                                                                    __aws_root_der, __aws_root_der_len,
                                                                    1614967200ULL );
-                if (!s)
+                if (!s) {
+                  fprintf(stderr, "Unable to pass verification process and obtain payload from specified AD!\n");  
                   return -1;
+                }
 
-                printf("ad payload: \n\n %s \n", s );
-
+                printf("AD payload: \n\n %s \n", s );
                 na_str_free( (char*)s);
                 
                 return 0;
