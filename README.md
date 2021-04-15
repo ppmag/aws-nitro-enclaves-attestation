@@ -8,6 +8,9 @@ Unfortunately, AWS Nitro Enclaves SDK for this moment has a lot of gaps in funct
 
 This library is trying to fill them. 
 
+For now, implemented attestation document parsing and validation flow, according to official specification:
+https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/main/docs/attestation_process.md
+
 # How to use
 
 After
