@@ -1,7 +1,7 @@
 
 [workspace]
-members = [ "ffi" ]
-default-members = [ "ffi" ]
+members = [ ".", "ffi" ]
+default-members = [ ".", "ffi" ]
 
 [profile.release]
 lto = true

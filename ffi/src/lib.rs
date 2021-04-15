@@ -13,7 +13,6 @@ pub unsafe extern "C" fn na_ad_get_verified_payload_as_json(
     root_cert_der_len: usize,
     unix_ts_sec: u64,
 ) -> *const c_char {
-
     // ad document ptr & len
     if ad_blob_ptr.is_null() {
         return std::ptr::null();
@@ -29,9 +28,15 @@ pub unsafe extern "C" fn na_ad_get_verified_payload_as_json(
     let cert_boxed_slice: Box<[u8]> = Box::from(slice);
 
     // call Rust lib
-    let nitro_addoc =
-        nitro::NitroAdDoc::from_bytes(&ad_boxed_slice, &cert_boxed_slice, unix_ts_sec).unwrap();
-    let js = nitro_addoc.to_json().unwrap();
+    let nitro_addoc = match nitro::NitroAdDoc::from_bytes(&ad_boxed_slice, &cert_boxed_slice, unix_ts_sec) {
+        Ok(v) => v,
+        Err(_e) => return std::ptr::null(), // [TODO] add C API call to get Last Error with message
+    };
+
+    let js = match nitro_addoc.to_json() {
+        Ok(v) => v,
+        Err(_e) => return std::ptr::null(), // [TODO] add C API call to get Last Error with message
+    };
 
     let c_str = CString::from_vec_unchecked(js.as_bytes().to_vec());
 
@@ -67,7 +72,7 @@ mod tests {
                                                                    1614967200ULL );
                 if (!s) {
                   fprintf(stderr, "Unable to pass verification process and obtain payload from specified AD!\n");  
-                  return -1;
+                  return 2;
                 }
 
                 printf("AD payload: \n\n %s \n", s );
@@ -79,5 +84,35 @@ mod tests {
         })
         .success();
         //.stdout("");
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn c_failure_current_time_in_the_future() {
+        (assert_c! {
+            //====================================================================================
+            #include <stdio.h>
+            #include "nitroattest.h"
+            #include "test_data.h"
+
+            int main() {
+
+                const char* s = na_ad_get_verified_payload_as_json( __nitro_ad_debug_bin, __nitro_ad_debug_bin_len,
+                                                                   __aws_root_der, __aws_root_der_len,
+                                                                   1614997200ULL );  // time in the future
+                if (!s) {
+                  fprintf(stderr, "Unable to pass verification process and obtain payload from specified AD!\n");  
+                  return 2;
+                }
+
+                printf("AD payload: \n\n %s \n", s );
+                na_str_free( (char*)s);
+                
+                return 0;
+            }
+            //====================================================================================
+        })
+        .failure()
+        .code(2);
     }
 }
