@@ -18,7 +18,7 @@ build = "build.rs"
 
 [lib]
 name = "nitroattest"
-crate-type = ["cdylib", "staticlib"]   
+crate-type = ["rlib", "cdylib", "staticlib"]   
 
 [dependencies]
 libc = "0.2.91"
