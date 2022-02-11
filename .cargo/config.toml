@@ -1,0 +1,2 @@
+[target.wasm32-unknown-emscripten]
+rustflags = ["-C", "link-args=./cpp/gxx_personality_v0_stub.o --no-entry" ]

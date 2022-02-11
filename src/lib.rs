@@ -13,6 +13,11 @@ use std::string::String;
 use aws_cose::error::COSEError;
 use aws_nitro_enclaves_cose as aws_cose;
 use hex;
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(feature = "openssl_native")
+))]
 use webpki;
 
 use serde::{Deserialize, Serialize};
@@ -31,7 +36,32 @@ use x509_parser::prelude::*;
 use openssl::bn::BigNumContext;
 use openssl::ec::*;
 use openssl::nid::Nid;
+#[cfg(any(
+    target_arch = "wasm32",
+    feature = "openssl_native"
+))]
+use openssl::x509;
+#[cfg(any(
+    target_arch = "wasm32",
+    feature = "openssl_native"
+))]
+use openssl::x509::*;
+#[cfg(any(
+    target_arch = "wasm32",
+    feature = "openssl_native"
+))]
+use openssl::stack::Stack;
+#[cfg(any(
+    target_arch = "wasm32",
+    feature = "openssl_native"
+))]
+use openssl::asn1::{Asn1Time};
 
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(feature = "openssl_native")
+))]
 static ALL_SIGALGS: &[&webpki::SignatureAlgorithm] = &[
     &webpki::ECDSA_P256_SHA256,
     &webpki::ECDSA_P256_SHA384,
@@ -93,8 +123,16 @@ where
 pub enum NitroAdError {
     COSEError(COSEError),
     CBORError(serde_cbor::Error),
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        not(feature = "openssl_native")
+    ))]
     VerificationError(webpki::Error),
     SerializationError(serde_json::Error),
+    OpenSSLError(openssl::error::Error),
+    OpenSSLErrorStack(openssl::error::ErrorStack),
+    IOError(std::io::Error),
+    InvalidUseOfRootCertificate(String),
     Error(String),
 }
 
@@ -116,6 +154,22 @@ impl From<serde_cbor::Error> for NitroAdError {
     }
 }
 
+impl From<openssl::error::Error> for NitroAdError {
+    fn from(err: openssl::error::Error) -> NitroAdError {
+        NitroAdError::OpenSSLError(err)
+    }
+}
+
+impl From<openssl::error::ErrorStack> for NitroAdError {
+    fn from(err: openssl::error::ErrorStack) -> NitroAdError {
+        NitroAdError::OpenSSLErrorStack(err)
+    }
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(feature = "openssl_native")
+))]
 impl From<webpki::Error> for NitroAdError {
     fn from(err: webpki::Error) -> NitroAdError {
         NitroAdError::VerificationError(err)
@@ -128,8 +182,138 @@ impl From<serde_json::Error> for NitroAdError {
     }
 }
 
+impl From<std::io::Error> for NitroAdError {
+    fn from(err: std::io::Error) -> NitroAdError {
+        NitroAdError::IOError(err)
+    }
+}
+
 pub struct NitroAdDoc {
     payload_ref: NitroAdDocPayload,
+}
+
+
+#[cfg(target_arch = "wasm32")]
+type UnixTime = i32;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    feature = "openssl_native"
+))]
+type UnixTime = i64;
+
+#[cfg(any(
+    target_arch = "wasm32",
+    feature = "openssl_native"
+))]
+pub struct CertificateChainVerifier {
+    root_cert: Vec<u8>,
+    root_cert_x509: X509,
+    peer_cert: Option<X509>,
+    cert_chain: Stack<X509>,
+    timestamp: Asn1Time
+}
+
+#[cfg(any(
+    target_arch = "wasm32",
+    feature = "openssl_native"
+))]
+impl CertificateChainVerifier {
+
+    /// Validates timestamp of the certificate against the timestamp passed as a parameter in the method "new".
+    /// Time should be validated manually, because there is no API end-point in OpenSSL to pass custom timestamp for validation.
+    /// # Arguments
+    /// * `cert` - OpenSSL::x509::X509 certificate to validate
+    fn validate_time(cert: &x509::X509, timestamp: &Asn1Time) -> Result<(), NitroAdError> {
+
+        if timestamp < cert.not_before() {
+            return Err(NitroAdError::Error("Certificate is not valid yet.".to_owned()));
+        }
+        else if timestamp > cert.not_after() {
+            return Err(NitroAdError::Error("Certificate has expired.".to_owned()));
+        }
+
+        Ok(())
+    }
+
+    /// Compares the root ca certificate with other certificates. Returns error, when certificates are equal.
+    /// # Arguments
+    /// * `cert` - OpenSSL::x509::X509 certificate
+    fn compare_cert_with_root(&self, cert: &X509) -> Result<(), NitroAdError> {
+        if cert.to_der()? == self.root_cert {
+            return Err(NitroAdError::InvalidUseOfRootCertificate("Root certificate used as peer or chain certificate!".to_owned()));
+        }  
+        Ok(())
+    }
+
+    /// Decodes der-encoded certificate into OpenSSL::x509::X509 structure.
+    /// # Arguments
+    /// * `cert_der` - der-encoded certificate.
+    fn der_to_x509(cert_der: &[u8]) -> Result<X509, NitroAdError> {
+        Ok(X509::from_der(cert_der)?)
+    }
+
+    fn validate_root_cert(root_cert_der: &[u8], timestamp: &Asn1Time) -> Result<X509, NitroAdError> {
+        let root_cert = CertificateChainVerifier::der_to_x509(root_cert_der)?;
+        CertificateChainVerifier::validate_time(&root_cert, timestamp)?;
+        Ok(root_cert)
+    }
+
+    /// Creates new instance of the CertificateChainVerifier
+    /// # Arguments
+    /// * `root_cert_der` - der-encoded root certificate
+    /// * `timestamp`     - unix time
+    pub fn new(root_cert_der: &[u8], timestamp: u64) -> Result<Self, NitroAdError> {
+
+        let timestamp_asn = Asn1Time::from_unix(timestamp as UnixTime)?;
+        let root_cert_x509 = CertificateChainVerifier::validate_root_cert(root_cert_der, &timestamp_asn)?;
+
+        Ok (CertificateChainVerifier { 
+            timestamp: timestamp_asn, 
+            root_cert: root_cert_der.to_vec(),
+            root_cert_x509: root_cert_x509,
+            peer_cert: None,
+            cert_chain: openssl::stack::Stack::new()?
+        })
+    }
+
+
+
+    /// Adds peer certificate to the OpenSSL validation context.
+    /// # Arguments
+    /// * `peer_cert_der` - der-encoded peer certificate.
+    pub fn add_peer_cert(&mut self, peer_cert_der: &[u8]) -> Result<(), NitroAdError> {
+        let peer_cert = CertificateChainVerifier::der_to_x509(peer_cert_der)?;
+        CertificateChainVerifier::validate_time(&peer_cert, &self.timestamp)?;
+        self.compare_cert_with_root(&peer_cert)?;
+        self.peer_cert = Some(peer_cert);
+        Ok(())
+    }
+
+    /// Adds extra certificate to the chain
+    /// # Arguments
+    /// * `cert_der` - der-encoded certificate
+    pub fn add_certificate_to_chain(&mut self, cert_der: &[u8]) -> Result<(), NitroAdError> {
+        let cert = CertificateChainVerifier::der_to_x509(cert_der)?;
+        CertificateChainVerifier::validate_time(&cert, &self.timestamp)?;
+        self.compare_cert_with_root(&cert)?;
+        self.cert_chain.push(cert)?;
+        Ok(())
+    }
+
+    /// Validates certificate chain against the root certificate
+    pub fn validate(self) -> Result<(), NitroAdError> {
+        let mut store_ctx = x509::X509StoreContext::new()?;
+
+        let mut store_builder = x509::store::X509StoreBuilder::new()?;
+        store_builder.set_flags(x509::verify::X509VerifyFlags::NO_CHECK_TIME)?; 
+        store_builder.add_cert(self.root_cert_x509)?;
+        let store = store_builder.build();        
+
+        match store_ctx.init(&store, &self.peer_cert.unwrap(), &self.cert_chain, |c| c.verify_cert())? {
+            true => Ok(()),
+            false => Err(NitroAdError::Error(format!("Certificate validation failed: {}", store_ctx.error())))
+        }
+    }
 }
 
 impl NitroAdDoc {
@@ -192,21 +376,42 @@ impl NitroAdDoc {
 
         // validate 'certificate' member against
         // 'cabundle' with root cert replaced with our trusted hardcoded one
-        let ee: &[u8] = &ad_parsed.certificate;
+        let ee: &[u8] = &ad_parsed.certificate; // the public key certificate for the public key that was used to sign the attestation document
 
-        let interm: Vec<ByteBuf> = ad_parsed.cabundle.clone();
-        let interm = &interm[1..]; // skip first (claimed root) cert
+        let mut interm: Vec<ByteBuf> = ad_parsed.cabundle.clone(); // issuing CA bundle for infrastructure certificate
+        let interm = &mut interm[1..]; // skip first (claimed root) cert
 
-        let interm_slices: Vec<_> = interm.iter().map(|x| x.as_slice()).collect();
-        let interm_slices: &[&[u8]] = &interm_slices.to_vec();
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(feature = "openssl_native")
+        ))]
+        {
+            let interm_slices: Vec<_> = interm.iter().map(|x| x.as_slice()).collect();
+            let interm_slices: &[&[u8]] = &interm_slices.to_vec();
+            
+            let anchors = vec![webpki::trust_anchor_util::cert_der_as_trust_anchor(root_cert).unwrap()];
+            let anchors = webpki::TLSServerTrustAnchors(&anchors);
+            
+            let time = webpki::Time::from_seconds_since_unix_epoch(unix_ts_sec);
+            
+            let cert = webpki::EndEntityCert::from(ee)?;
+            cert.verify_is_valid_tls_server_cert(ALL_SIGALGS, &anchors, interm_slices, time)?;
+        }
+        
+        #[cfg(any(
+            target_arch = "wasm32",
+            feature = "openssl_native"
+        ))]
+        {
+            let mut cert_chain_verifier = CertificateChainVerifier::new(root_cert, unix_ts_sec)?;
+            cert_chain_verifier.add_peer_cert(ee)?;
 
-        let anchors = vec![webpki::trust_anchor_util::cert_der_as_trust_anchor(root_cert).unwrap()];
-        let anchors = webpki::TLSServerTrustAnchors(&anchors);
+            for i in interm {
+                cert_chain_verifier.add_certificate_to_chain(&i.to_vec())?;
+            }
+            cert_chain_verifier.validate()?;
 
-        let time = webpki::Time::from_seconds_since_unix_epoch(unix_ts_sec);
-
-        let cert = webpki::EndEntityCert::from(ee)?;
-        cert.verify_is_valid_tls_server_cert(ALL_SIGALGS, &anchors, interm_slices, time)?;
+        }        
 
         let res = parse_x509_certificate(ee);
         match res {
@@ -388,6 +593,10 @@ mod tests {
         assert_eq!(cose_doc.get_payload(Some(&ec_public)).unwrap(), TEXT);
     }
 
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        not(feature = "openssl_native")
+    ))]
     #[test]
     fn aws_root_cert_used_as_end_entity_cert() {
         let ee: &[u8] = include_bytes!("../tests/data/aws_root.der");
@@ -403,6 +612,23 @@ mod tests {
             Err(webpki::Error::CAUsedAsEndEntity),
             cert.verify_is_valid_tls_server_cert(ALL_SIGALGS, &anchors, &[], time)
         );
+    }
+
+    // [TODO] this test fails, because openssl allows to pass ca certificate as an end-entity certificate. Maybe it should be checked manually before openssl validation.
+    #[cfg(any(
+        target_arch = "wasm32",
+        feature = "openssl_native"
+    ))]
+    #[test]
+    fn aws_root_cert_used_as_end_entity_cert() {
+        let ee: &[u8] = include_bytes!("../tests/data/aws_root.der");
+        let ca = include_bytes!("../tests/data/aws_root.der");
+
+        let mut cert_chain_verifier = CertificateChainVerifier::new(ca, 1616094379).unwrap();
+        match cert_chain_verifier.add_peer_cert(ee) {
+            Err(NitroAdError::InvalidUseOfRootCertificate(_)) => {},
+            _ => panic!("Test failed")
+        }      
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

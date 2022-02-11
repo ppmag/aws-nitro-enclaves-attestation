@@ -30,8 +30,15 @@ Third-party audition required.
 
 # Features
 
+openssl_native - use openssl instead of webpki for certificate validation
+
 Feel free to open new issue with your proposals.
 
+# Cross compiltion targets
+
+| Target                         | Notes |
+| -------------------------------| ----- |
+| wasm32-unknown-emscripten      | Current implementation of the crate ring doesn't support this target, which is why OpenSSL is beeing used instead of the webpki.
 # Dependencies
 
 * Attestation document parsing & COSE Signature validation:
@@ -41,3 +48,6 @@ Feel free to open new issue with your proposals.
 * X.509 Certificate Validation: 
 
 [webpki](https://crates.io/crates/webpki) 
+
+* X.509 Certificate Validation alternative:
+[openssl](https://crates.io/crates/openssl)

@@ -49,7 +49,7 @@ pub unsafe extern "C" fn na_str_free(ptr: *mut c_char) {
         return;
     }
 
-    CString::from_raw(ptr);
+    drop(CString::from_raw(ptr));
 }
 
 #[cfg(test)]
