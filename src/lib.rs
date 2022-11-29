@@ -226,10 +226,10 @@ impl CertificateChainVerifier {
     fn validate_time(cert: &x509::X509, timestamp: &Asn1Time) -> Result<(), NitroAdError> {
 
         if timestamp < cert.not_before() {
-            return Err(NitroAdError::Error("Certificate is not valid yet.".to_owned()));
+            return Err(NitroAdError::Error("CertNotValidYet.".to_owned()));
         }
         else if timestamp > cert.not_after() {
-            return Err(NitroAdError::Error("Certificate has expired.".to_owned()));
+            return Err(NitroAdError::Error("CertExpired.".to_owned()));
         }
 
         Ok(())
