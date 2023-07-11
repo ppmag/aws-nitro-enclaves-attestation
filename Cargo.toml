@@ -5,6 +5,7 @@ default-members = [ ".", "ffi" ]
 
 [profile.release]
 lto = true
+panic = "abort"
 
 [package]
 name = "aws-nitro-enclaves-attestation"
