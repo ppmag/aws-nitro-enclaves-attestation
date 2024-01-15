@@ -1,0 +1,3 @@
+[submodule "src/external/chrono"]
+	path = src/external/chrono
+	url = https://github.com/chronotope/chrono.git
